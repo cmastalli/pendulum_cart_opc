@@ -74,16 +74,25 @@ z_guess  = casadi_vec(dae_z, 0)
 T = 1.0
 N = 14 # Caution; mumps linear solver fails when too large
 
-options = {"implicit_solver": "newton",
-           "number_of_finite_elements": 1,
-           "interpolation_order": 4,
-           "collocation_scheme": "radau",
-           "implicit_solver_options": {"abstol":1e-9},
+#options = {"implicit_solver": "newton",
+#           "number_of_finite_elements": 1,
+#           "interpolation_order": 4,
+#           "collocation_scheme": "radau",
+#           "implicit_solver_options": {"abstol":1e-9},
+#           "tf": T/N}
+options = {"abstol":1e-9,
            "tf": T/N}
 
-intg = casadi.integrator("intg", "collocation", dae, options)
+intg = casadi.integrator("intg", "idas", dae, options)
 daefun = Function("daefun", dae, ["x","z","p"], ["ode","alg"])
-print daefun([x0_guess,z_guess,u_guess])
+rf = rootfinder('rf','newton',daefun,{"implicit_input":1,"implicit_output":1})
+rfsol = rf({'x':x0_guess,'z':z_guess,'p':u_guess})
+z_con = rfsol['alg']
+
+
+Jdaefun = daefun.jacobian('z','alg')
+print Jdaefun({'x':x0_guess,'z':z_con,'p':u_guess})
+print daefun({'x':x0_guess,'z':z_con,'p':u_guess})
 
 Xs = [MX.sym("X",nx) for i in range(N+1)]
 Us = [MX.sym("U",nu) for i in range(N)]
@@ -125,7 +134,7 @@ for k in range(N):
         ubx.append(casadi_vec(V_block, inf))
     
     # Obtain collocation expressions
-    out = intg({"x0": Xs[k], "p": Us[k]})
+    out = intg({"x0": Xs[k], "z0": z_con,"p": Us[k]})
 
     g.append(Xs[k+1] - out["xf"])
 
