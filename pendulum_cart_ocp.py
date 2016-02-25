@@ -39,7 +39,7 @@ eq = jtimes(gradient(Lag,dq),vertcat([q,dq,z]),vertcat([dq,ddq,dz])) - gradient(
 F_cart = casadi.vertcat([0, 0 , 0, u])
 res_eq = eq - F_cart
 
-# order dictionary
+# DAE definition
 dae_x = OrderedDict([('q',q),('dq',dq)])
 dae_z = OrderedDict([('z',z)])
 dae = {}
@@ -49,24 +49,11 @@ dae["p"] = u
 dae["ode"] = casadi_vec(dae_x,q=dq,dq=ddq)
 dae["alg"] = vertcat([res_eq, C])
 
-#nx = dae["x"].shape[0]
-#nu = dae["p"].shape[0]
-#nz = dae["z"].shape[0]
-#
-## Nominal force per rotor needed to hold quadcopter stationary
-#r_nom = ma*g/rotors_N
-#
-#x0_guess = casadi_vec(dae_x,q=vertcat([0,0,0]),R=DM.eye(3))
-#u_guess  = vertcat([r_nom]*rotors_N)
-#z_guess  = casadi_vec(dae_z,0)
-#
-#T = 1.0
-#N = 14 # Caution; mumps linear solver fails when too large
-#
-#options = {"implicit_solver": "newton","number_of_finite_elements":1,"interpolation_order":4,"collocation_scheme":"radau","implicit_solver_options": {"abstol":1e-9},"tf":T/N}
-#
-#intg = integrator("intg","collocation",dae,options)
-#daefun = Function("daefun",dae,["x","z","p"],["ode","alg"])
+# DAE dimension
+nx = dae["x"].shape[0]
+nu = dae["p"].shape[0]
+nz = dae["z"].shape[0]
+
 #print daefun([x0_guess,z_guess,u_guess])
 #
 #Xs  = [MX.sym("X",nx) for i in range(N+1)]
