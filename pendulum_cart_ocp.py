@@ -50,13 +50,13 @@ dc = casadi.mtimes(casadi.jacobian(c, q), dq)
 ddc = casadi.mtimes(casadi.jacobian(dc, q), dq) + casadi.mtimes(casadi.jacobian(dc, dq), ddq)
 
 # DAE definition
-dae_x = OrderedDict([('q',q),('dq',dq)])
+dae_x = OrderedDict([('q',q), ('dq',dq)])
 dae_z = OrderedDict([('z',z)])
 dae = {}
 dae["x"] = casadi_struct2vec(dae_x)
 dae["z"] = casadi_struct2vec(dae_z)
 dae["p"] = u
-dae["ode"] = casadi_vec(dae_x,q=dq,dq=ddq)
+dae["ode"] = casadi_vec(dae_x, q=dq, dq=ddq)
 dae["alg"] = ddc + dc + c
 
 # DAE dimension
@@ -67,8 +67,8 @@ nz = dae["z"].shape[0]
 # Nominal force per rotor needed to hold quadcopter stationary
 u_nom = casadi.vertcat([0, 0])
 
-x0_guess = casadi_vec(dae_x,q=casadi.vertcat([0,0,0,0,L]))
-u_guess  = casadi.vertcat([0,0])
+x0_guess = casadi_vec(dae_x, q=casadi.vertcat([0, 0, 0, 0, L]))
+u_guess  = casadi.vertcat([0, 0])
 z_guess  = casadi_vec(dae_z, 0)
 
 T = 1.0
@@ -92,7 +92,9 @@ V_block = OrderedDict()
 V_block["X"]  = Sparsity.dense(nx, 1)
 V_block["U"]  = Sparsity.dense(nu, 1)
 
-invariants = Function("invariants",[dae["x"]],[casadi.mtimes((point_diff.T, point_diff))])
+invariants = Function("invariants",
+                      [dae["x"]],
+                      [casadi.mtimes((point_diff.T, point_diff))])
 
 # Simple bounds on states
 lbx = []
@@ -105,7 +107,7 @@ g = []
 V = []
 for k in range(N):
     # Add decision variables
-    V += [casadi_vec(V_block,X=Xs[k],U=Us[k])]
+    V += [casadi_vec(V_block, X=Xs[k], U=Us[k])]
   
     if k == 0:
         # Bounds at t=0
