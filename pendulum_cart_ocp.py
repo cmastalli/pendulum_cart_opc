@@ -7,37 +7,47 @@ from helpers import skew
 # Model properties
 L = 0.58 # m
 g = 9.81 # gravity
-m = 80 # Trunk mass
+m_trunk = 80 # Trunk mass
+m_cart = 2  # Virtual cart mass for matrix inversion
 
 # Variable declaration
-p = casadi.SX.sym('p', 2) # CoP position
-c = casadi.SX.sym('c', 3) # CoM position
-dp = casadi.SX.sym('dp', 2) # CoP velocity
-dc = casadi.SX.sym('dc', 3) # CoM velocity
+cop = casadi.SX.sym('cop', 2) # CoP position
+com = casadi.SX.sym('com', 3) # CoM position
+dcop = casadi.SX.sym('dcop', 2) # CoP velocity
+dcom = casadi.SX.sym('dcom', 3) # CoM velocity
 u = casadi.SX.sym('u', 2) # Cart control forces
 z = casadi.SX.sym('z') # Algebraic variable
 
 # State variables
-q = casadi.vertcat([p, c])
-dq = casadi.vertcat([dp, dc])
-ddq = SX.sym('ddq', *q.shape)
+q = casadi.vertcat([cop, com])
+dq = casadi.vertcat([dcop, dcom])
 dz = casadi.SX.sym('dz')
 
 # Lagrange mechanics
-T = 0.5 * m * casadi.dot(dc, dc) # Kinetic energy
-V = m * g * c[2] # Potential Energy
-ext_p = casadi.vertcat([p, 0])
-cp_diff = c - ext_p
-C = casadi.dot(cp_diff, cp_diff) - L**2 # Algebraic constraint
+T = 0.5 * m_trunk * casadi.dot(dcom, dcom) + 0.5 * m_cart * casadi.dot(dcop, dcop) # Kinetic energy
+V = m_trunk * g * com[2] # Potential Energy
+ext_cop = casadi.vertcat([cop, 0])
+point_diff = com - ext_cop
+c = casadi.dot(point_diff, point_diff) - L**2 # Algebraic constraint
 
 # Lagrange function
-Lag = T - V - z * C
+Lag = T - V - z * c
+Fg_cart = casadi.vertcat([0, 0 , 0, u])
 
-# Force-less Lagrange equations
-eq = jtimes(gradient(Lag,dq),vertcat([q,dq,z]),vertcat([dq,ddq,dz])) - gradient(Lag,q)
+# DAE equation: [dot(q) == dq;
+#                dot(dq) == ddq;
+#                   0    == c]
 
-F_cart = casadi.vertcat([0, 0 , 0, u])
-res_eq = eq - F_cart
+# Computing the ODE
+Ldq = casadi.jacobian(Lag, dq)
+Lq = casadi.jacobian(Lag, q)
+M = DM(casadi.jacobian(Ldq, dq)).full() # Inertial matrix
+tmp = casadi.mtimes(casadi.jacobian(Ldq, q), dq)
+ddq = casadi.mtimes(casadi.inv(M), Lq.T + Fg_cart - tmp) ## Ode response explicitly defined
+
+# Index reduction
+dc = casadi.mtimes(casadi.jacobian(c, q), dq)
+ddc = casadi.mtimes(casadi.jacobian(dc, q), dq) + casadi.mtimes(casadi.jacobian(dc, dq), ddq)
 
 # DAE definition
 dae_x = OrderedDict([('q',q),('dq',dq)])
@@ -47,7 +57,7 @@ dae["x"] = casadi_struct2vec(dae_x)
 dae["z"] = casadi_struct2vec(dae_z)
 dae["p"] = u
 dae["ode"] = casadi_vec(dae_x,q=dq,dq=ddq)
-dae["alg"] = vertcat([res_eq, C])
+dae["alg"] = ddc + dc + c
 
 # DAE dimension
 nx = dae["x"].shape[0]
@@ -61,6 +71,18 @@ x0_guess = casadi_vec(dae_x,q=casadi.vertcat([0,0,0,0,0]))
 u_guess  = casadi.vertcat([0,0])
 z_guess  = casadi_vec(dae_z, 0)
 
+T = 1.0
+N = 14 # Caution; mumps linear solver fails when too large
+
+options = {"implicit_solver": "newton",
+           "number_of_finite_elements": 1,
+           "interpolation_order": 4,
+           "collocation_scheme": "radau",
+           "implicit_solver_options": {"abstol":1e-9},
+           "tf": T/N}
+
+intg = casadi.integrator("intg", "collocation", dae, options)
+#daefun = Function("daefun", dae, ["x","z","p"], ["ode","alg"])
 #print daefun([x0_guess,z_guess,u_guess])
 #
 #Xs  = [MX.sym("X",nx) for i in range(N+1)]
