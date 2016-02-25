@@ -84,20 +84,16 @@ options = {"implicit_solver": "newton",
 intg = casadi.integrator("intg", "collocation", dae, options)
 daefun = Function("daefun", dae, ["x","z","p"], ["ode","alg"])
 print daefun([x0_guess,z_guess,u_guess])
-#
-#Xs  = [MX.sym("X",nx) for i in range(N+1)]
-#Us  = [MX.sym("U",nu) for i in range(N)]
-#
-#V_block = OrderedDict()
-#V_block["X"]  = Sparsity.dense(nx,1)
-#V_block["U"]  = Sparsity.dense(nu,1)
-#
-#invariants = Function("invariants",[dae["x"]],[vertcat([triu(mtimes(R.T,R)-DM.eye(3)).nz[:]])])
-#
-## Simple bounds on states
-#lbx = []
-#ubx = []
-#
+
+Xs = [MX.sym("X",nx) for i in range(N+1)]
+Us = [MX.sym("U",nu) for i in range(N)]
+
+V_block = OrderedDict()
+V_block["X"]  = Sparsity.dense(nx, 1)
+V_block["U"]  = Sparsity.dense(nu, 1)
+
+invariants = Function("invariants",[dae["x"]],[casadi.mtimes((point_diff.T, point_diff))])
+
 ## List of constraints
 #g = []
 #
