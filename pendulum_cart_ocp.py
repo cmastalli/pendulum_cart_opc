@@ -67,7 +67,7 @@ nz = dae["z"].shape[0]
 # Nominal force per rotor needed to hold quadcopter stationary
 u_nom = casadi.vertcat([0, 0])
 
-x0_guess = casadi_vec(dae_x,q=casadi.vertcat([0,0,0,0,0]))
+x0_guess = casadi_vec(dae_x,q=casadi.vertcat([0,0,0,0,L]))
 u_guess  = casadi.vertcat([0,0])
 z_guess  = casadi_vec(dae_z, 0)
 
@@ -82,8 +82,8 @@ options = {"implicit_solver": "newton",
            "tf": T/N}
 
 intg = casadi.integrator("intg", "collocation", dae, options)
-#daefun = Function("daefun", dae, ["x","z","p"], ["ode","alg"])
-#print daefun([x0_guess,z_guess,u_guess])
+daefun = Function("daefun", dae, ["x","z","p"], ["ode","alg"])
+print daefun([x0_guess,z_guess,u_guess])
 #
 #Xs  = [MX.sym("X",nx) for i in range(N+1)]
 #Us  = [MX.sym("U",nu) for i in range(N)]
