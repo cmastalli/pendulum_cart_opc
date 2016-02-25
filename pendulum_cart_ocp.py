@@ -94,63 +94,66 @@ V_block["U"]  = Sparsity.dense(nu, 1)
 
 invariants = Function("invariants",[dae["x"]],[casadi.mtimes((point_diff.T, point_diff))])
 
-## List of constraints
-#g = []
-#
-## List of all decision variables (determines ordering)
-#V = []
-#for k in range(N):
-#  # Add decision variables
-#  V += [casadi_vec(V_block,X=Xs[k],U=Us[k])]
-#  
-#  if k==0:
-#    # Bounds at t=0
-#    q_lb  = DM([0,0,0])
-#    q_ub  = DM([0,0,0])
-#    dq_lb = DM([0]*3)
-#    dq_ub = DM([0]*3)
-#    x_lb = casadi_vec(dae_x,-inf,q=q_lb,dq=dq_lb)
-#    x_ub = casadi_vec(dae_x,inf,q=q_ub,dq=dq_ub)
-#    lbx.append(casadi_vec(V_block,-inf,X=x_lb))
-#    ubx.append(casadi_vec(V_block,inf,X=x_ub))
-#  else:
-#    # Bounds for other t
-#    lbx.append(casadi_vec(V_block,-inf))
-#    ubx.append(casadi_vec(V_block,inf))
-#    
-#  # Obtain collocation expressions
-#  
-#  out = intg({"x0":Xs[k],"p":Us[k]})
-#
-#  g.append(Xs[k+1]-out["xf"])
-#
-#V+= [Xs[-1]]
-#
-## Bounds for final t
-#q_lb  = DM([1,0,0.5])
-#q_ub  = DM([1,0,0.5])
-#dq_lb = DM([0]*3)
-#dq_ub = DM([0]*3)
-#x_lb = casadi_vec(dae_x,-inf,q=q_lb,dq=dq_lb)
-#x_ub = casadi_vec(dae_x,inf,q=q_ub,dq=dq_ub)
-#lbx.append(x_lb)
-#ubx.append(x_ub)
-#
-#
-## Construct regularisation
-#reg = 0
-#for x in Xs:
-#  xstruct = casadi_vec2struct(dae_x,x)
-#  reg += sumRows(sumCols((xstruct["R"]-DM.eye(3))**2))
-#  reg += sumRows(sumCols(xstruct["w"]**2))
-#  reg += sumRows(sumCols(xstruct["dq"]**2))
-#  
-#for u in Us:
-#  reg += 100*sumRows(sumCols((u-r_nom)**2))
-#
-#e = vertcat(Us)
-#nlp = {"x":veccat(V), "f":dot(e,e)+reg, "g": vertcat([invariants([Xs[0]])[0]]+g)}
-#
+# Simple bounds on states
+lbx = []
+ubx = []
+
+# List of constraints
+g = []
+
+# List of all decision variables (determines ordering)
+V = []
+for k in range(N):
+    # Add decision variables
+    V += [casadi_vec(V_block,X=Xs[k],U=Us[k])]
+  
+    if k == 0:
+        # Bounds at t=0
+        q_lb  = DM([0]*5)
+        q_ub  = DM([0]*5)
+        dq_lb = DM([0]*5)
+        dq_ub = DM([0]*5)
+        x_lb = casadi_vec(dae_x, -inf, q=q_lb, dq=dq_lb)
+        x_ub = casadi_vec(dae_x, inf, q=q_ub, dq=dq_ub)
+        lbx.append(casadi_vec(V_block, -inf, X=x_lb))
+        ubx.append(casadi_vec(V_block, inf, X=x_ub))
+    else:
+        # Bounds for other t
+        lbx.append(casadi_vec(V_block, -inf))
+        ubx.append(casadi_vec(V_block, inf))
+    
+    # Obtain collocation expressions
+    out = intg({"x0": Xs[k], "p": Us[k]})
+
+    g.append(Xs[k+1] - out["xf"])
+
+V+= [Xs[-1]]
+
+# Bounds for final t
+q_lb  = DM([0.1 ,0, 0.1, 0, L])
+q_ub  = DM([0.1, 0, 0.1, 0, L])
+dq_lb = DM([0]*5)
+dq_ub = DM([0]*5)
+x_lb = casadi_vec(dae_x, -inf, q=q_lb, dq=dq_lb)
+x_ub = casadi_vec(dae_x, inf, q=q_ub, dq=dq_ub)
+lbx.append(x_lb)
+ubx.append(x_ub)
+
+
+# Construct regularisation
+reg = 0
+for x in Xs:
+    xstruct = casadi_vec2struct(dae_x,x)
+    reg += sumRows(sumCols(xstruct["dq"]**2))
+  
+for u in Us:
+    reg += 100 * sumRows(sumCols(u**2))
+
+e = casadi.vertcat(Us)
+nlp = {"x": casadi.veccat(V), 
+       "f": casadi.dot(e,e) + reg,
+       "g": casadi.vertcat([invariants([Xs[0]])[0]] + g)}
+
 #solver = nlpsol("solver","ipopt",nlp)
 #
 #x0 = vertcat([x0_guess,u_guess]*N+[x0_guess])
