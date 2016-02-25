@@ -152,24 +152,28 @@ for u in Us:
     reg += 100 * sumRows(sumCols(u**2))
 
 e = casadi.vertcat(Us)
+
+# Defining the NLP problem
 nlp = {"x": casadi.veccat(V), 
        "f": casadi.dot(e,e) + reg,
        "g": casadi.vertcat([invariants([Xs[0]])[0]] + g)}
 
-#solver = nlpsol("solver","ipopt",nlp)
-#
-#x0 = vertcat([x0_guess,u_guess]*N+[x0_guess])
-#
-#args = {}
-#args["x0"] = x0
-#args["lbx"] = vertcat(lbx)
-#args["ubx"] = vertcat(ubx)
-#args["lbg"] = 0
-#args["ubg"] = 0
-#
-#print vertcat(lbx)
-#
-#res = solver(args)
+# Declaring the NLP solver
+solver = nlpsol("solver", "ipopt", nlp)
+
+# Initializationg of the warm point
+x0 = casadi.vertcat([x0_guess, u_guess]*N + [x0_guess])
+
+args = {}
+args["x0"] = x0
+args["lbx"] = casadi.vertcat(lbx)
+args["ubx"] = casadi.vertcat(ubx)
+args["lbg"] = 0
+args["ubg"] = 0
+
+print vertcat(lbx)
+
+res = solver(args)
 #
 #res_split = vertsplit(res["x"],casadi_struct2vec(V_block).shape[0])
 #
