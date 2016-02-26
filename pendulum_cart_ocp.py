@@ -28,7 +28,7 @@ T = 0.5 * m_trunk * casadi.dot(dcom, dcom) + 0.5 * m_cart * casadi.dot(dcop, dco
 V = m_trunk * g * com[2] # Potential Energy
 ext_cop = casadi.vertcat([cop, 0])
 point_diff = com - ext_cop
-c = casadi.dot(point_diff, point_diff) - L**2 # Algebraic constraint
+c = 0.5 * (casadi.dot(point_diff, point_diff) - L**2) # Algebraic constraint
 
 # Lagrange function
 Lag = T - V - z * c
@@ -42,12 +42,17 @@ Fg_cart = casadi.vertcat([0, 0 , 0, u])
 Ldq = casadi.jacobian(Lag, dq)
 Lq = casadi.jacobian(Lag, q)
 M = DM(casadi.jacobian(Ldq, dq)).full() # Inertial matrix
-tmp = casadi.mtimes(casadi.jacobian(Ldq, q), dq)
-ddq = casadi.mtimes(casadi.inv(M), Lq.T + Fg_cart - tmp) ## Ode response explicitly defined
+# Note that Mdot = casadi.jacobian(casadi.jacobian(Ldq, dq), q) = 0
+gradC_z = casadi.jacobian(c, q) * z
+ddq = casadi.mtimes(casadi.inv(M), Lq.T + Fg_cart - gradC_z) ## Ode response explicitly defined
 
 # Index reduction
 dc = casadi.mtimes(casadi.jacobian(c, q), dq)
 ddc = casadi.mtimes(casadi.jacobian(dc, q), dq) + casadi.mtimes(casadi.jacobian(dc, dq), ddq)
+
+print DM(casadi.jacobian(c, z))
+print DM(casadi.jacobian(dc, z))
+print DM(casadi.jacobian(ddc, z))
 
 # DAE definition
 dae_x = OrderedDict([('q',q), ('dq',dq)])
@@ -80,30 +85,36 @@ N = 14 # Caution; mumps linear solver fails when too large
 #           "collocation_scheme": "radau",
 #           "implicit_solver_options": {"abstol":1e-9},
 #           "tf": T/N}
-options = {"abstol":1e-9,
+options = {"abstol": 1e-9,
            "tf": T/N}
 
 intg = casadi.integrator("intg", "idas", dae, options)
 daefun = Function("daefun", dae, ["x","z","p"], ["ode","alg"])
-rf = rootfinder('rf','newton',daefun,{"implicit_input":1,"implicit_output":1})
-rfsol = rf({'x':x0_guess,'z':z_guess,'p':u_guess})
+
+rf = rootfinder('rf','newton', daefun, {"implicit_input":1,"implicit_output":1})
+rfsol = rf({'x':x0_guess, 'z':z_guess, 'p':u_guess})
 z_con = rfsol['alg']
+print ' --- Consistent initial conditions ---'
+print 'z_0 = ', z_con
 
 
 Jdaefun = daefun.jacobian('z','alg')
-print Jdaefun({'x':x0_guess,'z':z_con,'p':u_guess})
-print daefun({'x':x0_guess,'z':z_con,'p':u_guess})
+print Jdaefun({'x': x0_guess, 'z': z_con, 'p': u_guess})
+print daefun({'x': x0_guess, 'z': z_con, 'p': u_guess})
 
 Xs = [MX.sym("X",nx) for i in range(N+1)]
 Us = [MX.sym("U",nu) for i in range(N)]
+#Zs = [MX.sym("Z",nz) for i in range(N+1)]
 
 V_block = OrderedDict()
 V_block["X"]  = Sparsity.dense(nx, 1)
 V_block["U"]  = Sparsity.dense(nu, 1)
+#V_block["Z"]  = Sparsity.dense(nz, 1)
 
 invariants = Function("invariants",
                       [dae["x"]],
-                      [casadi.mtimes((point_diff.T, point_diff))])
+                      [vertcat([c,dc])])
+                      #[casadi.mtimes((point_diff.T, point_diff))])
 
 # Simple bounds on states
 lbx = []
@@ -116,7 +127,7 @@ g = []
 V = []
 for k in range(N):
     # Add decision variables
-    V += [casadi_vec(V_block, X=Xs[k], U=Us[k])]
+    V += [casadi_vec(V_block, X=Xs[k], U=Us[k])]#Z=Zs[k], U=Us[k])]
   
     if k == 0:
         # Bounds at t=0
@@ -134,7 +145,7 @@ for k in range(N):
         ubx.append(casadi_vec(V_block, inf))
     
     # Obtain collocation expressions
-    out = intg({"x0": Xs[k], "z0": z_con,"p": Us[k]})
+    out = intg({"x0": Xs[k], "z0": z_con, "p": Us[k]})
 
     g.append(Xs[k+1] - out["xf"])
 
@@ -149,7 +160,6 @@ x_lb = casadi_vec(dae_x, -inf, q=q_lb, dq=dq_lb)
 x_ub = casadi_vec(dae_x, inf, q=q_ub, dq=dq_ub)
 lbx.append(x_lb)
 ubx.append(x_ub)
-
 
 # Construct regularisation
 reg = 0
