@@ -32,7 +32,7 @@ c = 0.5 * (casadi.dot(point_diff, point_diff) - L**2) # Algebraic constraint
 
 # Lagrange function
 Lag = T - V - z * c
-Fg_cart = casadi.vertcat([0, 0 , 0, u])
+Fg_cart = casadi.vertcat([u, 0, 0, 0])
 
 # DAE equation: [dot(q) == dq;
 #                dot(dq) == ddq;
