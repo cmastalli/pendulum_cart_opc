@@ -44,7 +44,7 @@ Lq = casadi.jacobian(Lag, q)
 M = DM(casadi.jacobian(Ldq, dq)).full() # Inertial matrix
 # Note that Mdot = casadi.jacobian(casadi.jacobian(Ldq, dq), q) = 0
 gradC_z = casadi.jacobian(c, q) * z
-ddq = casadi.mtimes(casadi.inv(M), Lq.T + Fg_cart - gradC_z) ## Ode response explicitly defined
+ddq = casadi.mtimes(casadi.inv(M), Lq.T + Fg_cart - gradC_z.T) ## Ode response explicitly defined
 
 # Index reduction
 dc = casadi.mtimes(casadi.jacobian(c, q), dq)
